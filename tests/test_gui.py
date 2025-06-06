@@ -5,10 +5,10 @@ Simple test to verify GUI initialization
 
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.config_manager import ConfigManager
-from src.mlp_generator import MLPGenerator
+from config_manager import ConfigManager
+from mlp_generator import MLPGenerator
 
 def test_components():
     """Test that all components can be initialized."""
@@ -35,7 +35,7 @@ def test_components():
     
     # Test GUI components (import only)
     try:
-        from src.gui_app import MLPVisualizerGUI
+        from gui_app import MLPVisualizerGUI
         print("✅ GUI imports: OK")
     except Exception as e:
         print(f"❌ GUI import failed: {e}")

@@ -17,7 +17,7 @@ python main.py
 ## 🎛️ Basic Usage
 
 ### GUI Application
-- **Left Panel**: Adjust all parameters (network structure, visual style, labels)
+- **Left Panel**: Adjust all parameters (network structure, layer colors, visual style, labels)
 - **Right Panel**: Real-time preview of your neural network
 - **Auto-update**: Enable/disable real-time updates as you change parameters
 
@@ -29,6 +29,9 @@ python main.py
 
 2. **Visual Tweaks**:
    - Node diameter: `30-50` (good for papers)
+   - Layer colors: Click "Configure Layer Colors..." button
+     - Try presets: Default, Academic, or Gradient
+     - Individual color picking for each layer
    - Edge opacity: `0.6-0.8` (for clean look)
    - Layer spacing: `120-150`
 
