@@ -126,6 +126,26 @@ class MLPVisualizerGUI:
         self.hidden_layers_var = tk.StringVar(value=str(self.current_config["network_structure"]["hidden_layers"])[1:-1])
         hidden_entry = ttk.Entry(structure_frame, textvariable=self.hidden_layers_var, width=15)
         hidden_entry.grid(row=1, column=1, pady=5, padx=5, sticky=tk.W)
+        
+        # Add validation
+        def validate_hidden_layers(value):
+            """Validate hidden layers input."""
+            if not value.strip():
+                return True  # Empty is valid
+            try:
+                # Split by comma and filter out empty strings
+                parts = [x.strip() for x in value.split(',')]
+                parts = [x for x in parts if x]  # Remove empty strings
+                for part in parts:
+                    int(part)  # Try to convert to int
+                return True
+            except ValueError:
+                return False
+        
+        # Register validation function
+        vcmd = (self.root.register(validate_hidden_layers), '%P')
+        hidden_entry.config(validate='key', validatecommand=vcmd)
+        
         ttk.Label(structure_frame, text="e.g., 4,4,3", font=('Arial', 8)).grid(row=1, column=2, sticky=tk.W, padx=5)
         
         # Output neurons
@@ -157,52 +177,57 @@ class MLPVisualizerGUI:
         diameter_value_label = ttk.Label(visual_frame, text=f"{visual_params['node_diameter']:.0f}")
         diameter_value_label.grid(row=0, column=2, padx=5)
         
-        # Node color
-        ttk.Label(visual_frame, text="Node Color:", width=15).grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
-        self.node_color_var = tk.StringVar(value=visual_params["node_color"])
-        color_frame = ttk.Frame(visual_frame)
-        color_frame.grid(row=1, column=1, sticky=tk.W, pady=5, padx=5)
-        self.color_display = tk.Label(color_frame, width=4, height=1, 
-                                     bg=visual_params["node_color"], relief=tk.RAISED)
-        self.color_display.pack(side=tk.LEFT)
-        ttk.Button(color_frame, text="Choose", 
-                  command=self.choose_color).pack(side=tk.LEFT, padx=(5,0))
+        # Layer Colors Section
+        ttk.Label(visual_frame, text="Layer Colors:", width=15).grid(row=1, column=0, sticky=tk.W, pady=5, padx=5)
+        colors_button_frame = ttk.Frame(visual_frame)
+        colors_button_frame.grid(row=1, column=1, sticky=tk.W, pady=5, padx=5)
+        
+        ttk.Button(colors_button_frame, text="Configure Layer Colors...", 
+                  command=self.open_layer_colors_dialog).pack(side=tk.LEFT)
+        
+        # Initialize layer color variables and displays
+        self.layer_color_vars = []
+        self.layer_color_displays = []
+        self.layer_colors_dialog = None
+        
+        # Create initial layer color variables
+        self.initialize_layer_colors()
         
         # Edge width
-        ttk.Label(visual_frame, text="Edge Width:", width=15).grid(row=2, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(visual_frame, text="Edge Width:", width=15).grid(row=3, column=0, sticky=tk.W, pady=5, padx=5)
         self.edge_width_var = tk.DoubleVar(value=visual_params["edge_width"])
         width_scale = ttk.Scale(visual_frame, from_=0.5, to=5.0, orient=tk.HORIZONTAL, 
                                variable=self.edge_width_var, length=150)
-        width_scale.grid(row=2, column=1, sticky=tk.EW, pady=5, padx=5)
+        width_scale.grid(row=3, column=1, sticky=tk.EW, pady=5, padx=5)
         width_value_label = ttk.Label(visual_frame, text=f"{visual_params['edge_width']:.1f}")
-        width_value_label.grid(row=2, column=2, padx=5)
+        width_value_label.grid(row=3, column=2, padx=5)
         
         # Edge opacity
-        ttk.Label(visual_frame, text="Edge Opacity:", width=15).grid(row=3, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(visual_frame, text="Edge Opacity:", width=15).grid(row=4, column=0, sticky=tk.W, pady=5, padx=5)
         self.edge_opacity_var = tk.DoubleVar(value=visual_params["edge_opacity"])
         opacity_scale = ttk.Scale(visual_frame, from_=0.1, to=1.0, orient=tk.HORIZONTAL, 
                                  variable=self.edge_opacity_var, length=150)
-        opacity_scale.grid(row=3, column=1, sticky=tk.EW, pady=5, padx=5)
+        opacity_scale.grid(row=4, column=1, sticky=tk.EW, pady=5, padx=5)
         opacity_value_label = ttk.Label(visual_frame, text=f"{visual_params['edge_opacity']:.1f}")
-        opacity_value_label.grid(row=3, column=2, padx=5)
+        opacity_value_label.grid(row=4, column=2, padx=5)
         
         # Layer spacing
-        ttk.Label(visual_frame, text="Layer Spacing:", width=15).grid(row=4, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(visual_frame, text="Layer Spacing:", width=15).grid(row=5, column=0, sticky=tk.W, pady=5, padx=5)
         self.layer_spacing_var = tk.DoubleVar(value=visual_params["layer_spacing"])
         spacing_scale = ttk.Scale(visual_frame, from_=50, to=300, orient=tk.HORIZONTAL, 
                                  variable=self.layer_spacing_var, length=150)
-        spacing_scale.grid(row=4, column=1, sticky=tk.EW, pady=5, padx=5)
+        spacing_scale.grid(row=5, column=1, sticky=tk.EW, pady=5, padx=5)
         spacing_value_label = ttk.Label(visual_frame, text=f"{visual_params['layer_spacing']:.0f}")
-        spacing_value_label.grid(row=4, column=2, padx=5)
+        spacing_value_label.grid(row=5, column=2, padx=5)
         
         # Node spacing
-        ttk.Label(visual_frame, text="Node Spacing:", width=15).grid(row=5, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(visual_frame, text="Node Spacing:", width=15).grid(row=6, column=0, sticky=tk.W, pady=5, padx=5)
         self.node_spacing_var = tk.DoubleVar(value=visual_params["node_spacing"])
         node_spacing_scale = ttk.Scale(visual_frame, from_=20, to=120, orient=tk.HORIZONTAL, 
                                       variable=self.node_spacing_var, length=150)
-        node_spacing_scale.grid(row=5, column=1, sticky=tk.EW, pady=5, padx=5)
+        node_spacing_scale.grid(row=6, column=1, sticky=tk.EW, pady=5, padx=5)
         node_spacing_value_label = ttk.Label(visual_frame, text=f"{visual_params['node_spacing']:.0f}")
-        node_spacing_value_label.grid(row=5, column=2, padx=5)
+        node_spacing_value_label.grid(row=6, column=2, padx=5)
         
         # Configure column weights
         visual_frame.columnconfigure(1, weight=1)
@@ -296,7 +321,7 @@ class MLPVisualizerGUI:
         # Bind all variable changes to update method
         variables = [
             self.input_neurons_var, self.output_neurons_var, self.hidden_layers_var,
-            self.node_diameter_var, self.node_color_var, self.edge_width_var,
+            self.node_diameter_var, self.edge_width_var,
             self.edge_opacity_var, self.layer_spacing_var, self.node_spacing_var,
             self.show_labels_var, self.input_label_var, self.hidden_label_var,
             self.output_label_var, self.width_var, self.height_var, self.dpi_var
@@ -305,7 +330,37 @@ class MLPVisualizerGUI:
         for var in variables:
             if hasattr(var, 'trace'):
                 var.trace('w', self.on_parameter_change)
+        
+        # Special binding for network structure changes
+        self.input_neurons_var.trace('w', self.on_structure_change)
+        self.output_neurons_var.trace('w', self.on_structure_change)
+        self.hidden_layers_var.trace('w', self.on_structure_change)
     
+    def on_structure_change(self, *args):
+        """Handle network structure changes."""
+        self.root.after_idle(self.recreate_layer_colors)
+        self.on_parameter_change()
+    
+    def recreate_layer_colors(self):
+        """Recreate layer color variables when structure changes."""
+        self.initialize_layer_colors()
+        
+        # If dialog is open, refresh it
+        if self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
+            # Clear the dialog content and recreate
+            for widget in self.layer_colors_dialog.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Find the scrollable frame and recreate controls
+                    canvas = None
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Canvas):
+                            canvas = child
+                            break
+                    if canvas:
+                        scrollable_frame = canvas.nametowidget(canvas.find_all()[0])
+                        self.create_dialog_layer_controls(scrollable_frame)
+                    break
+        
     def on_parameter_change(self, *args):
         """Handle parameter changes."""
         # Update value labels
@@ -326,22 +381,347 @@ class MLPVisualizerGUI:
         except:
             pass  # Ignore errors during initialization
     
-    def choose_color(self):
-        """Open color chooser dialog."""
-        color = colorchooser.askcolor(color=self.node_color_var.get())
+    def initialize_layer_colors(self):
+        """Initialize layer color variables without GUI controls."""
+        # Get current network structure
+        try:
+            hidden_layers_str = self.hidden_layers_var.get().strip()
+            if hidden_layers_str:
+                # Split by comma and filter out empty strings
+                layer_parts = [x.strip() for x in hidden_layers_str.split(',')]
+                layer_parts = [x for x in layer_parts if x]  # Remove empty strings
+                hidden_layers = [int(x) for x in layer_parts]
+            else:
+                hidden_layers = []
+        except:
+            hidden_layers = []
+        
+        # Calculate total layers needed
+        total_layers = 1 + len(hidden_layers) + 1  # input + hidden + output
+        
+        # Ensure we have enough colors
+        self.current_config = self.config_manager.ensure_layer_colors(self.current_config)
+        layer_colors = self.current_config["visual_params"]["layer_colors"]
+        
+        # Clear existing variables
+        self.layer_color_vars.clear()
+        
+        # Create color variables
+        for i in range(total_layers):
+            if i < len(layer_colors):
+                color = layer_colors[i]
+            else:
+                color = "#4A90E2"  # fallback
+            
+            color_var = tk.StringVar(value=color)
+            color_var.trace('w', self.on_parameter_change)
+            self.layer_color_vars.append(color_var)
+    
+    def open_layer_colors_dialog(self):
+        """Open the layer colors configuration dialog."""
+        if self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
+            self.layer_colors_dialog.lift()
+            return
+        
+        # Create dialog window
+        self.layer_colors_dialog = tk.Toplevel(self.root)
+        self.layer_colors_dialog.title("Configure Layer Colors")
+        self.layer_colors_dialog.geometry("400x500")
+        self.layer_colors_dialog.resizable(True, True)
+        
+        # Make it modal
+        self.layer_colors_dialog.transient(self.root)
+        self.layer_colors_dialog.grab_set()
+        
+        # Create main frame with scrollbar
+        main_frame = ttk.Frame(self.layer_colors_dialog)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="Layer Colors Configuration", 
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 10))
+        
+        # Create scrollable frame
+        canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack scrollable components
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Create layer color controls in the scrollable frame
+        self.create_dialog_layer_controls(scrollable_frame)
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(self.layer_colors_dialog)
+        buttons_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # Preset buttons
+        presets_frame = ttk.LabelFrame(buttons_frame, text="Color Presets")
+        presets_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Button(presets_frame, text="Default", 
+                  command=self.apply_default_colors).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(presets_frame, text="Academic (Grayscale)", 
+                  command=self.apply_academic_colors).pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Button(presets_frame, text="Gradient (Blue→Red)", 
+                  command=self.apply_gradient_colors).pack(side=tk.LEFT, padx=5, pady=5)
+        
+        # Action buttons
+        action_frame = ttk.Frame(buttons_frame)
+        action_frame.pack(fill=tk.X)
+        
+        ttk.Button(action_frame, text="Close", 
+                  command=self.layer_colors_dialog.destroy).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(action_frame, text="Apply & Close", 
+                  command=self.apply_and_close_colors).pack(side=tk.RIGHT, padx=5)
+        
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+    
+    def create_dialog_layer_controls(self, parent):
+        """Create layer color controls in the dialog."""
+        # Clear existing displays
+        self.layer_color_displays.clear()
+        
+        # Get current network structure
+        try:
+            hidden_layers_str = self.hidden_layers_var.get().strip()
+            if hidden_layers_str:
+                # Split by comma and filter out empty strings
+                layer_parts = [x.strip() for x in hidden_layers_str.split(',')]
+                layer_parts = [x for x in layer_parts if x]  # Remove empty strings
+                hidden_layers = [int(x) for x in layer_parts]
+            else:
+                hidden_layers = []
+        except:
+            hidden_layers = []
+        
+        # Calculate layer names
+        layer_names = ["Input"]
+        for i, neurons in enumerate(hidden_layers):
+            layer_names.append(f"Hidden {i+1} ({neurons} neurons)")
+        layer_names.append("Output")
+        
+        # Ensure we have enough color variables
+        while len(self.layer_color_vars) < len(layer_names):
+            color_var = tk.StringVar(value="#4A90E2")
+            color_var.trace('w', self.on_parameter_change)
+            self.layer_color_vars.append(color_var)
+        
+        # Create controls for each layer
+        for i, name in enumerate(layer_names):
+            if i >= len(self.layer_color_vars):
+                continue
+                
+            # Layer frame
+            layer_frame = ttk.Frame(parent)
+            layer_frame.pack(fill=tk.X, pady=5)
+            
+            # Layer name label
+            name_label = ttk.Label(layer_frame, text=name, width=20, anchor='w')
+            name_label.pack(side=tk.LEFT, padx=(0, 10))
+            
+            # Color display
+            color = self.layer_color_vars[i].get()
+            color_display = tk.Label(layer_frame, width=6, height=2, bg=color, 
+                                   relief=tk.RAISED, text=color, fg='white' if self._is_dark_color(color) else 'black',
+                                   font=('Arial', 7))
+            color_display.pack(side=tk.LEFT, padx=(0, 5))
+            self.layer_color_displays.append(color_display)
+            
+            # Hex color entry with validation
+            def validate_hex_input(value):
+                """Validate hex color input as user types."""
+                if not value:
+                    return True  # Empty is valid (will be handled later)
+                if not value.startswith('#'):
+                    return value == '#'  # Allow typing '#' at start
+                if len(value) > 7:
+                    return False  # Too long
+                try:
+                    if len(value) > 1:
+                        int(value[1:], 16)  # Try to parse hex digits
+                    return True
+                except ValueError:
+                    return False
+            
+            vcmd_hex = (self.root.register(validate_hex_input), '%P')
+            hex_entry = ttk.Entry(layer_frame, textvariable=self.layer_color_vars[i], width=8, 
+                                 font=('Courier', 9), validate='key', validatecommand=vcmd_hex)
+            hex_entry.pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Update display when hex entry changes
+            def update_color_display(idx=i):
+                try:
+                    color = self.layer_color_vars[idx].get()
+                    if self._is_valid_hex_color(color):
+                        self.layer_color_displays[idx].config(
+                            bg=color, 
+                            text=color,
+                            fg='white' if self._is_dark_color(color) else 'black'
+                        )
+                except:
+                    pass
+            
+            self.layer_color_vars[i].trace('w', lambda *args, idx=i: update_color_display(idx))
+            
+            # Choose button
+            choose_btn = ttk.Button(layer_frame, text="Pick", 
+                                   command=lambda idx=i: self.choose_layer_color_dialog(idx))
+            choose_btn.pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Random color button
+            random_btn = ttk.Button(layer_frame, text="Random", 
+                                   command=lambda idx=i: self.random_layer_color(idx))
+            random_btn.pack(side=tk.LEFT)
+    
+    def _is_dark_color(self, hex_color):
+        """Check if a color is dark (for text contrast)."""
+        try:
+            hex_color = hex_color.lstrip('#')
+            r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+            return luminance < 0.5
+        except:
+            return False
+    
+    def _is_valid_hex_color(self, color):
+        """Check if a color code is valid."""
+        if not isinstance(color, str):
+            return False
+        if not color.startswith('#'):
+            return False
+        if len(color) != 7:
+            return False
+        try:
+            int(color[1:], 16)  # Try to parse as hex
+            return True
+        except ValueError:
+            return False
+    
+    def choose_layer_color_dialog(self, layer_idx):
+        """Open color chooser dialog for specific layer in the dialog."""
+        current_color = self.layer_color_vars[layer_idx].get()
+        color = colorchooser.askcolor(color=current_color)
         if color[1]:  # If user didn't cancel
-            self.node_color_var.set(color[1])
-            self.color_display.config(bg=color[1])
+            self.layer_color_vars[layer_idx].set(color[1])
+            if layer_idx < len(self.layer_color_displays):
+                self.layer_color_displays[layer_idx].config(
+                    bg=color[1], 
+                    text=color[1],
+                    fg='white' if self._is_dark_color(color[1]) else 'black'
+                )
             if self.auto_update.get():
                 self.update_preview()
+    
+    def random_layer_color(self, layer_idx):
+        """Set a random color for the specified layer."""
+        import random
+        colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", 
+                 "#F7DC6F", "#BB8FCE", "#85C1E9", "#F8C471", "#82E0AA",
+                 "#F1948A", "#85929E", "#5DADE2", "#58D68D", "#F4D03F"]
+        
+        random_color = random.choice(colors)
+        self.layer_color_vars[layer_idx].set(random_color)
+        if layer_idx < len(self.layer_color_displays):
+            self.layer_color_displays[layer_idx].config(
+                bg=random_color, 
+                text=random_color,
+                fg='white' if self._is_dark_color(random_color) else 'black'
+            )
+        if self.auto_update.get():
+            self.update_preview()
+    
+    def apply_default_colors(self):
+        """Apply default color scheme."""
+        default_colors = ["#4A90E2", "#50C878", "#FF6B6B", "#FFD93D", "#9B59B6", 
+                         "#E67E22", "#1ABC9C", "#34495E", "#E74C3C", "#3498DB"]
+        
+        for i, color_var in enumerate(self.layer_color_vars):
+            color = default_colors[i % len(default_colors)]
+            color_var.set(color)
+            if i < len(self.layer_color_displays):
+                self.layer_color_displays[i].config(
+                    bg=color, 
+                    text=color,
+                    fg='white' if self._is_dark_color(color) else 'black'
+                )
+        if self.auto_update.get():
+            self.update_preview()
+    
+    def apply_academic_colors(self):
+        """Apply academic (grayscale) color scheme."""
+        gray_colors = ["#2D3748", "#4A5568", "#718096", "#A0AEC0", "#CBD5E0",
+                      "#E2E8F0", "#F7FAFC", "#1A202C", "#2D3748", "#4A5568"]
+        
+        for i, color_var in enumerate(self.layer_color_vars):
+            color = gray_colors[i % len(gray_colors)]
+            color_var.set(color)
+            if i < len(self.layer_color_displays):
+                self.layer_color_displays[i].config(
+                    bg=color, 
+                    text=color,
+                    fg='white' if self._is_dark_color(color) else 'black'
+                )
+        if self.auto_update.get():
+            self.update_preview()
+    
+    def apply_gradient_colors(self):
+        """Apply gradient (blue to red) color scheme."""
+        def interpolate_color(start_color, end_color, factor):
+            """Interpolate between two hex colors."""
+            start_rgb = tuple(int(start_color[i:i+2], 16) for i in (1, 3, 5))
+            end_rgb = tuple(int(end_color[i:i+2], 16) for i in (1, 3, 5))
+            
+            rgb = [int(start_rgb[i] + factor * (end_rgb[i] - start_rgb[i])) for i in range(3)]
+            return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+        
+        start_color = "#1E3A8A"  # Dark blue
+        end_color = "#DC2626"    # Dark red
+        
+        num_layers = len(self.layer_color_vars)
+        for i, color_var in enumerate(self.layer_color_vars):
+            factor = i / max(1, num_layers - 1)  # Avoid division by zero
+            color = interpolate_color(start_color, end_color, factor)
+            color_var.set(color)
+            if i < len(self.layer_color_displays):
+                self.layer_color_displays[i].config(
+                    bg=color, 
+                    text=color,
+                    fg='white' if self._is_dark_color(color) else 'black'
+                )
+        if self.auto_update.get():
+            self.update_preview()
+    
+    def apply_and_close_colors(self):
+        """Apply colors and close dialog."""
+        if self.auto_update.get():
+            self.update_preview()
+        self.layer_colors_dialog.destroy()
     
     def update_config_from_gui(self):
         """Update current config from GUI values."""
         try:
-            # Parse hidden layers
+            # Parse hidden layers with better error handling
             hidden_layers_str = self.hidden_layers_var.get().strip()
             if hidden_layers_str:
-                hidden_layers = [int(x.strip()) for x in hidden_layers_str.split(',')]
+                # Split by comma and filter out empty strings
+                layer_parts = [x.strip() for x in hidden_layers_str.split(',')]
+                layer_parts = [x for x in layer_parts if x]  # Remove empty strings
+                hidden_layers = [int(x) for x in layer_parts]
             else:
                 hidden_layers = []
             
@@ -353,7 +733,8 @@ class MLPVisualizerGUI:
                 },
                 "visual_params": {
                     "node_diameter": self.node_diameter_var.get(),
-                    "node_color": self.node_color_var.get(),
+                    "node_color": self.layer_color_vars[0].get() if self.layer_color_vars else "#4A90E2",
+                    "layer_colors": [var.get() for var in self.layer_color_vars],
                     "edge_width": self.edge_width_var.get(),
                     "edge_opacity": self.edge_opacity_var.get(),
                     "layer_spacing": self.layer_spacing_var.get(),
@@ -373,16 +754,27 @@ class MLPVisualizerGUI:
                 }
             })
             return True
+        except ValueError as e:
+            # Handle parsing errors more gracefully
+            print(f"Parameter parsing error: {e}")
+            return False
         except Exception as e:
-            messagebox.showerror("Error", f"Invalid parameters: {str(e)}")
+            # Handle other errors without showing dialog to prevent recursion
+            print(f"Config update error: {e}")
             return False
     
     def update_preview(self):
         """Update the preview image."""
-        if not self.update_config_from_gui():
+        # Prevent recursive calls during error states
+        if hasattr(self, '_updating_preview') and self._updating_preview:
             return
         
+        self._updating_preview = True
+        
         try:
+            if not self.update_config_from_gui():
+                return
+            
             # Generate new diagram
             self.mlp_generator.close_figure()
             fig = self.mlp_generator.create_diagram(self.current_config)
@@ -415,7 +807,9 @@ class MLPVisualizerGUI:
             self.config_manager.auto_save_config(self.current_config)
             
         except Exception as e:
-            messagebox.showerror("Preview Error", f"Failed to update preview: {str(e)}")
+            print(f"Preview Error: {e}")  # Use print instead of messagebox to prevent recursion
+        finally:
+            self._updating_preview = False
     
     def new_config(self):
         """Create new configuration."""
@@ -469,12 +863,13 @@ class MLPVisualizerGUI:
         # Visual parameters
         visual = config["visual_params"]
         self.node_diameter_var.set(visual["node_diameter"])
-        self.node_color_var.set(visual["node_color"])
-        self.color_display.config(bg=visual["node_color"])
         self.edge_width_var.set(visual["edge_width"])
         self.edge_opacity_var.set(visual["edge_opacity"])
         self.layer_spacing_var.set(visual["layer_spacing"])
         self.node_spacing_var.set(visual["node_spacing"])
+        
+        # Recreate layer color variables with loaded colors
+        self.initialize_layer_colors()
         
         # Labels
         labels = config["labels"]

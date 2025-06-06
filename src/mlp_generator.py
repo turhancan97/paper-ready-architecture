@@ -94,16 +94,26 @@ class MLPGenerator:
                     )
     
     def _draw_nodes(self, positions: List[List[Tuple[float, float]]], visual: Dict[str, Any]):
-        """Draw neural network nodes."""
+        """Draw neural network nodes with layer-specific colors."""
         radius = visual["node_diameter"] / 2
         
-        for layer_positions in positions:
+        # Get layer colors, fallback to single color if not available
+        layer_colors = visual.get("layer_colors", [visual["node_color"]])
+        fallback_color = visual["node_color"]
+        
+        for layer_idx, layer_positions in enumerate(positions):
+            # Get color for this layer, use fallback if not enough colors defined
+            if layer_idx < len(layer_colors):
+                layer_color = layer_colors[layer_idx]
+            else:
+                layer_color = fallback_color
+            
             for pos in layer_positions:
-                # Draw node
+                # Draw node with layer-specific color
                 circle = patches.Circle(
                     pos, 
                     radius, 
-                    facecolor=visual["node_color"],
+                    facecolor=layer_color,
                     edgecolor='black',
                     linewidth=1.5,
                     zorder=2

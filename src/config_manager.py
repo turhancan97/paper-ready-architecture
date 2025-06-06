@@ -26,7 +26,8 @@ class ConfigManager:
             },
             "visual_params": {
                 "node_diameter": 30,
-                "node_color": "#4A90E2",
+                "node_color": "#4A90E2",  # Fallback color for backward compatibility
+                "layer_colors": ["#4A90E2", "#50C878", "#FF6B6B", "#FFD93D"],  # Colors for each layer
                 "edge_width": 1.0,
                 "edge_opacity": 0.7,
                 "layer_spacing": 150,
@@ -85,4 +86,61 @@ class ConfigManager:
     
     def auto_save_config(self, config: Dict[str, Any]) -> str:
         """Auto-save configuration with timestamp."""
-        return self.save_config(config, f"auto_save_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml") 
+        return self.save_config(config, f"auto_save_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml")
+    
+    def ensure_layer_colors(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure there are enough layer colors for the current network structure."""
+        # Calculate total number of layers
+        structure = config["network_structure"]
+        total_layers = 1 + len(structure["hidden_layers"]) + 1  # input + hidden + output
+        
+        # Default color palette
+        default_colors = [
+            "#4A90E2",  # Blue
+            "#50C878",  # Green  
+            "#FF6B6B",  # Red
+            "#FFD93D",  # Yellow
+            "#9B59B6",  # Purple
+            "#E67E22",  # Orange
+            "#1ABC9C",  # Teal
+            "#34495E",  # Dark Gray
+            "#E74C3C",  # Dark Red
+            "#3498DB"   # Light Blue
+        ]
+        
+        # Get current layer colors or use fallback
+        current_colors = config["visual_params"].get("layer_colors", [config["visual_params"]["node_color"]])
+        
+        # Validate and fix invalid colors
+        def is_valid_color(color):
+            """Check if a color code is valid."""
+            if not isinstance(color, str):
+                return False
+            if not color.startswith('#'):
+                return False
+            if len(color) != 7:
+                return False
+            try:
+                int(color[1:], 16)  # Try to parse as hex
+                return True
+            except ValueError:
+                return False
+        
+        # Replace invalid colors with defaults
+        for i, color in enumerate(current_colors):
+            if not is_valid_color(color):
+                current_colors[i] = default_colors[i % len(default_colors)]
+        
+        # Extend colors if needed
+        while len(current_colors) < total_layers:
+            # Cycle through default colors
+            color_idx = len(current_colors) % len(default_colors)
+            current_colors.append(default_colors[color_idx])
+        
+        # Trim if too many colors
+        current_colors = current_colors[:total_layers]
+        
+        # Update config
+        config["visual_params"]["layer_colors"] = current_colors
+        
+        return config 
