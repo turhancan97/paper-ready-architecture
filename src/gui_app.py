@@ -308,8 +308,9 @@ class MLPVisualizerGUI:
                 if hasattr(self, 'pruning_value_labels'):
                     self.pruning_value_labels['neuron'].config(text=f"{self.neuron_prune_var.get():.0f}%")
                     self.pruning_value_labels['synapse'].config(text=f"{self.synapse_prune_var.get():.0f}%")
-            except:
-                pass
+            except (AttributeError, ValueError) as e:
+                import logging
+                logging.error(f"Error updating pruning value labels: {e}")
         self.update_value_labels = updated_update_value_labels
     
     def apply_random_pruning(self):

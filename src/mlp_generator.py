@@ -73,7 +73,7 @@ class MLPGenerator:
         # This ensures the same pruning pattern for the same configuration
         seed_str = f"{neuron_prune_pct}_{synapse_prune_pct}_{len(layers)}_{'-'.join(map(str, layers))}"
         seed = abs(hash(seed_str)) % 2**32
-        random.seed(seed)
+        local_random = random.Random(seed)
         
         pruned_neurons = set()  # (layer_idx, neuron_idx)
         pruned_connections = set()  # (from_layer, from_neuron, to_layer, to_neuron)
