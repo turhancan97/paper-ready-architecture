@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import FancyBboxPatch
 import numpy as np
-from typing import List, Tuple, Dict, Any
+import random
+from typing import List, Tuple, Dict, Any, Set
 import io
 import base64
 
@@ -20,6 +21,7 @@ class MLPGenerator:
         visual = config["visual_params"]
         labels = config["labels"]
         export_config = config["export"]
+        pruning = config.get("pruning", {"enabled": False, "neuron_prune_percentage": 0.0, "synapse_prune_percentage": 0.0})
         
         # Create figure with clean style
         plt.style.use('default')
@@ -36,14 +38,21 @@ class MLPGenerator:
         # Build layer structure
         layers = [structure["input_neurons"]] + structure["hidden_layers"] + [structure["output_neurons"]]
         
+        # Apply pruning if enabled
+        if pruning["enabled"]:
+            layers, pruned_neurons, pruned_connections = self._apply_pruning(layers, pruning)
+        else:
+            pruned_neurons = set()
+            pruned_connections = set()
+        
         # Calculate positions
         positions = self._calculate_positions(layers, visual)
         
         # Draw connections first (so they appear behind nodes)
-        self._draw_connections(positions, visual)
+        self._draw_connections(positions, visual, pruned_connections)
         
         # Draw nodes
-        self._draw_nodes(positions, visual)
+        self._draw_nodes(positions, visual, pruned_neurons)
         
         # Draw labels if requested
         if labels["show_layer_labels"]:
@@ -54,6 +63,74 @@ class MLPGenerator:
         
         plt.tight_layout()
         return self.fig
+    
+    def _apply_pruning(self, layers: List[int], pruning: Dict[str, Any]) -> Tuple[List[int], Set[Tuple[int, int]], Set[Tuple[int, int, int, int]]]:
+        """Apply pruning to neurons and synapses. Returns modified layers, pruned neurons, and pruned connections."""
+        neuron_prune_pct = pruning["neuron_prune_percentage"] / 100.0
+        synapse_prune_pct = pruning["synapse_prune_percentage"] / 100.0
+        
+        # Set random seed for consistent results based on pruning parameters and network structure
+        # This ensures the same pruning pattern for the same configuration
+        seed_str = f"{neuron_prune_pct}_{synapse_prune_pct}_{len(layers)}_{'-'.join(map(str, layers))}"
+        seed = abs(hash(seed_str)) % 2**32
+        random.seed(seed)
+        
+        pruned_neurons = set()  # (layer_idx, neuron_idx)
+        pruned_connections = set()  # (from_layer, from_neuron, to_layer, to_neuron)
+        
+        # Original layers for position calculation
+        original_layers = layers.copy()
+        
+        # Prune neurons in hidden layers only (not input/output)
+        if neuron_prune_pct > 0:
+            for layer_idx in range(1, len(layers) - 1):  # Skip input (0) and output (last)
+                layer_size = layers[layer_idx]
+                num_to_prune = int(layer_size * neuron_prune_pct)
+                
+                if num_to_prune > 0:
+                    # Randomly select neurons to prune
+                    neurons_to_prune = random.sample(range(layer_size), min(num_to_prune, layer_size))
+                    for neuron_idx in neurons_to_prune:
+                        pruned_neurons.add((layer_idx, neuron_idx))
+        
+        # Remove all connections involving pruned neurons (they shouldn't exist)
+        for layer_idx in range(len(layers) - 1):
+            from_layer_size = layers[layer_idx]
+            to_layer_size = layers[layer_idx + 1]
+            
+            for from_neuron in range(from_layer_size):
+                for to_neuron in range(to_layer_size):
+                    # If either neuron in the connection is pruned, remove the connection
+                    if (layer_idx, from_neuron) in pruned_neurons or (layer_idx + 1, to_neuron) in pruned_neurons:
+                        pruned_connections.add((layer_idx, from_neuron, layer_idx + 1, to_neuron))
+        
+        # Prune additional synapses (only from remaining valid connections)
+        if synapse_prune_pct > 0:
+            for layer_idx in range(len(layers) - 1):
+                from_layer_size = layers[layer_idx]
+                to_layer_size = layers[layer_idx + 1]
+                
+                # Generate only valid connections (between non-pruned neurons)
+                valid_connections = []
+                for from_neuron in range(from_layer_size):
+                    for to_neuron in range(to_layer_size):
+                        # Only include connections between non-pruned neurons
+                        if (layer_idx, from_neuron) not in pruned_neurons and (layer_idx + 1, to_neuron) not in pruned_neurons:
+                            connection = (layer_idx, from_neuron, layer_idx + 1, to_neuron)
+                            # And only if not already pruned due to neuron removal
+                            if connection not in pruned_connections:
+                                valid_connections.append(connection)
+                
+                # Calculate how many additional synapses to prune from valid connections
+                num_to_prune = int(len(valid_connections) * synapse_prune_pct)
+                
+                if num_to_prune > 0:
+                    # Randomly select connections to prune from valid connections only
+                    connections_to_prune = random.sample(valid_connections, min(num_to_prune, len(valid_connections)))
+                    for conn in connections_to_prune:
+                        pruned_connections.add(conn)
+        
+        return original_layers, pruned_neurons, pruned_connections
     
     def _calculate_positions(self, layers: List[int], visual: Dict[str, Any]) -> List[List[Tuple[float, float]]]:
         """Calculate node positions for each layer."""
@@ -76,24 +153,26 @@ class MLPGenerator:
         
         return positions
     
-    def _draw_connections(self, positions: List[List[Tuple[float, float]]], visual: Dict[str, Any]):
+    def _draw_connections(self, positions: List[List[Tuple[float, float]]], visual: Dict[str, Any], pruned_connections: Set[Tuple[int, int, int, int]]):
         """Draw connections between layers."""
         for i in range(len(positions) - 1):
             current_layer = positions[i]
             next_layer = positions[i + 1]
             
-            for start_pos in current_layer:
-                for end_pos in next_layer:
-                    self.ax.plot(
-                        [start_pos[0], end_pos[0]], 
-                        [start_pos[1], end_pos[1]],
-                        color='black',
-                        linewidth=visual["edge_width"],
-                        alpha=visual["edge_opacity"],
-                        zorder=1
-                    )
+            for start_idx, start_pos in enumerate(current_layer):
+                for end_idx, end_pos in enumerate(next_layer):
+                    # Check if this connection is pruned
+                    if (i, start_idx, i + 1, end_idx) not in pruned_connections:
+                        self.ax.plot(
+                            [start_pos[0], end_pos[0]], 
+                            [start_pos[1], end_pos[1]],
+                            color='black',
+                            linewidth=visual["edge_width"],
+                            alpha=visual["edge_opacity"],
+                            zorder=1
+                        )
     
-    def _draw_nodes(self, positions: List[List[Tuple[float, float]]], visual: Dict[str, Any]):
+    def _draw_nodes(self, positions: List[List[Tuple[float, float]]], visual: Dict[str, Any], pruned_neurons: Set[Tuple[int, int]]):
         """Draw neural network nodes with layer-specific colors."""
         radius = visual["node_diameter"] / 2
         
@@ -108,17 +187,18 @@ class MLPGenerator:
             else:
                 layer_color = fallback_color
             
-            for pos in layer_positions:
-                # Draw node with layer-specific color
-                circle = patches.Circle(
-                    pos, 
-                    radius, 
-                    facecolor=layer_color,
-                    edgecolor='black',
-                    linewidth=1.5,
-                    zorder=2
-                )
-                self.ax.add_patch(circle)
+            for neuron_idx, pos in enumerate(layer_positions):
+                # Draw node with layer-specific color only if not pruned
+                if (layer_idx, neuron_idx) not in pruned_neurons:
+                    circle = patches.Circle(
+                        pos, 
+                        radius, 
+                        facecolor=layer_color,
+                        edgecolor='black',
+                        linewidth=1.5,
+                        zorder=2
+                    )
+                    self.ax.add_patch(circle)
     
     def _draw_labels(self, positions: List[List[Tuple[float, float]]], labels: Dict[str, Any], layers: List[int]):
         """Draw layer labels."""
