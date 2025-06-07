@@ -90,6 +90,9 @@ class MLPVisualizerGUI:
         # Visual Parameters Tab
         self.create_visual_tab(notebook)
         
+        # Pruning Tab
+        self.create_pruning_tab(notebook)
+        
         # Labels Tab
         self.create_labels_tab(notebook)
         
@@ -241,6 +244,81 @@ class MLPVisualizerGUI:
             'node_spacing': node_spacing_value_label
         }
     
+    def create_pruning_tab(self, parent):
+        """Create pruning controls."""
+        pruning_frame = ttk.Frame(parent)
+        parent.add(pruning_frame, text="Pruning")
+        
+        # Configure padding for the frame
+        pruning_frame.grid_configure(padx=10, pady=10)
+        
+        pruning_config = self.current_config.get("pruning", {"enabled": False, "neuron_prune_percentage": 0.0, "synapse_prune_percentage": 0.0})
+        
+        # Enable pruning checkbox
+        self.pruning_enabled_var = tk.BooleanVar(value=pruning_config["enabled"])
+        enable_checkbox = ttk.Checkbutton(pruning_frame, text="Enable Network Pruning", 
+                                         variable=self.pruning_enabled_var)
+        enable_checkbox.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=10, padx=5)
+        
+        # Information label
+        info_label = ttk.Label(pruning_frame, 
+                              text="Pruning removes neurons and synapses to simulate sparse networks.\nOnly hidden layer neurons are pruned (input/output preserved).",
+                              font=('Arial', 9), justify=tk.LEFT, foreground='gray')
+        info_label.grid(row=1, column=0, columnspan=3, pady=5, padx=5, sticky=tk.W)
+        
+        # Neuron pruning percentage
+        ttk.Label(pruning_frame, text="Neuron Pruning (%):", width=18).grid(row=2, column=0, sticky=tk.W, pady=10, padx=5)
+        self.neuron_prune_var = tk.DoubleVar(value=pruning_config["neuron_prune_percentage"])
+        neuron_scale = ttk.Scale(pruning_frame, from_=0, to=90, orient=tk.HORIZONTAL, 
+                                variable=self.neuron_prune_var, length=150)
+        neuron_scale.grid(row=2, column=1, sticky=tk.EW, pady=10, padx=5)
+        neuron_value_label = ttk.Label(pruning_frame, text=f"{pruning_config['neuron_prune_percentage']:.0f}%")
+        neuron_value_label.grid(row=2, column=2, padx=5)
+        
+        # Synapse pruning percentage
+        ttk.Label(pruning_frame, text="Synapse Pruning (%):", width=18).grid(row=3, column=0, sticky=tk.W, pady=10, padx=5)
+        self.synapse_prune_var = tk.DoubleVar(value=pruning_config["synapse_prune_percentage"])
+        synapse_scale = ttk.Scale(pruning_frame, from_=0, to=90, orient=tk.HORIZONTAL, 
+                                 variable=self.synapse_prune_var, length=150)
+        synapse_scale.grid(row=3, column=1, sticky=tk.EW, pady=10, padx=5)
+        synapse_value_label = ttk.Label(pruning_frame, text=f"{pruning_config['synapse_prune_percentage']:.0f}%")
+        synapse_value_label.grid(row=3, column=2, padx=5)
+        
+        # Button to apply random pruning
+        random_button = ttk.Button(pruning_frame, text="Apply Random Pruning", 
+                                  command=self.apply_random_pruning)
+        random_button.grid(row=4, column=0, columnspan=2, pady=15, padx=5, sticky=tk.W)
+        
+        # Configure column weights
+        pruning_frame.columnconfigure(1, weight=1)
+        
+        # Store references to value labels for updates
+        if not hasattr(self, 'pruning_value_labels'):
+            self.pruning_value_labels = {}
+        self.pruning_value_labels.update({
+            'neuron': neuron_value_label,
+            'synapse': synapse_value_label
+        })
+        
+        # Update the update_value_labels method to include pruning labels
+        original_update = self.update_value_labels
+        def updated_update_value_labels():
+            original_update()
+            try:
+                if hasattr(self, 'pruning_value_labels'):
+                    self.pruning_value_labels['neuron'].config(text=f"{self.neuron_prune_var.get():.0f}%")
+                    self.pruning_value_labels['synapse'].config(text=f"{self.synapse_prune_var.get():.0f}%")
+            except:
+                pass
+        self.update_value_labels = updated_update_value_labels
+    
+    def apply_random_pruning(self):
+        """Apply random pruning with current settings."""
+        # Enable pruning
+        self.pruning_enabled_var.set(True)
+        # Force update preview
+        self.update_preview()
+    
     def create_labels_tab(self, parent):
         """Create labels controls."""
         labels_frame = ttk.Frame(parent)
@@ -324,7 +402,8 @@ class MLPVisualizerGUI:
             self.node_diameter_var, self.edge_width_var,
             self.edge_opacity_var, self.layer_spacing_var, self.node_spacing_var,
             self.show_labels_var, self.input_label_var, self.hidden_label_var,
-            self.output_label_var, self.width_var, self.height_var, self.dpi_var
+            self.output_label_var, self.width_var, self.height_var, self.dpi_var,
+            self.pruning_enabled_var, self.neuron_prune_var, self.synapse_prune_var
         ]
         
         for var in variables:
@@ -740,6 +819,11 @@ class MLPVisualizerGUI:
                     "layer_spacing": self.layer_spacing_var.get(),
                     "node_spacing": self.node_spacing_var.get()
                 },
+                "pruning": {
+                    "enabled": self.pruning_enabled_var.get(),
+                    "neuron_prune_percentage": self.neuron_prune_var.get(),
+                    "synapse_prune_percentage": self.synapse_prune_var.get()
+                },
                 "labels": {
                     "show_layer_labels": self.show_labels_var.get(),
                     "input_label": self.input_label_var.get(),
@@ -870,6 +954,12 @@ class MLPVisualizerGUI:
         
         # Recreate layer color variables with loaded colors
         self.initialize_layer_colors()
+        
+        # Pruning parameters
+        pruning = config.get("pruning", {"enabled": False, "neuron_prune_percentage": 0.0, "synapse_prune_percentage": 0.0})
+        self.pruning_enabled_var.set(pruning["enabled"])
+        self.neuron_prune_var.set(pruning["neuron_prune_percentage"])
+        self.synapse_prune_var.set(pruning["synapse_prune_percentage"])
         
         # Labels
         labels = config["labels"]

@@ -33,6 +33,11 @@ class ConfigManager:
                 "layer_spacing": 150,
                 "node_spacing": 60
             },
+            "pruning": {
+                "enabled": False,
+                "neuron_prune_percentage": 0.0,
+                "synapse_prune_percentage": 0.0
+            },
             "labels": {
                 "show_layer_labels": True,
                 "input_label": "Input Layer",

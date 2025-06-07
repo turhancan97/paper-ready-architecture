@@ -23,6 +23,11 @@ A Python application for creating paper-ready visualizations of Multi-Layer Perc
 
 - **Real-time Preview**: See changes instantly as you adjust parameters
 - **Professional Examples**: Pre-configured styles for academic, vibrant, and deep network visualizations
+- **Network Pruning**: Simulate sparse networks by removing neurons and synapses
+  - Neuron pruning: Remove percentage of neurons from hidden layers only
+  - Synapse pruning: Remove percentage of connections between layers
+  - Input/Output neurons are always preserved
+  - Visual representation of pruned networks (missing nodes and connections)
 - **Customizable Parameters**:
   - Node diameter and individual layer colors
   - Edge width and opacity  
@@ -62,6 +67,7 @@ The application provides an intuitive GUI with:
 1. **Control Panel** (left side):
    - **Network Structure**: Configure input, hidden layers, and output neurons
    - **Visual Parameters**: Adjust node size, edge properties, and spacing
+   - **Pruning**: Enable and configure network sparsity
    - **Layer Colors**: Click "Configure Layer Colors..." to open color dialog
    - **Labels**: Toggle and customize layer labels
    - **Export Settings**: Set dimensions and DPI for export
@@ -84,6 +90,11 @@ The application provides an intuitive GUI with:
 - **Edge Opacity**: Transparency of connections (0.1-1.0)
 - **Layer Spacing**: Horizontal distance between layers (50-300)
 - **Node Spacing**: Vertical distance between nodes in same layer (20-120)
+- **Pruning Parameters**:
+  - **Enable Pruning**: Toggle to activate network sparsification
+  - **Neuron Pruning (%)**: Percentage of hidden layer neurons to remove (0-90%)
+  - **Synapse Pruning (%)**: Percentage of connections to remove (0-90%)
+  - **Apply Random Pruning**: Button to enable pruning and update visualization
 
 ### Exporting Images
 
@@ -109,6 +120,30 @@ The application provides an intuitive GUI with:
 - Input: 5 neurons (Dark Blue)
 - Hidden: 8, 6, 4 neurons (Blue, Orange, Purple)
 - Output: 3 neurons (Green)
+
+### Network Pruning Examples
+
+The application supports network pruning to visualize sparse neural networks commonly used in research:
+
+#### Before Pruning
+<img src="assets/before_pruning.png" width="600" alt="Original dense network">
+
+*Original dense network with all neurons and synapses*
+
+#### Neuron Pruning (30%)
+<img src="assets/neuron_pruning_30.png" width="600" alt="Network with 30% neuron pruning">
+
+*Network with 30% of hidden layer neurons removed*
+
+#### Synapse Pruning (40%)
+<img src="assets/synapse_pruning_40.png" width="600" alt="Network with 40% synapse pruning">
+
+*Network with 40% of connections removed*
+
+#### Combined Pruning (25% neurons + 50% synapses)
+<img src="assets/combined_pruning.png" width="600" alt="Network with combined pruning">
+
+*Network with both neuron and synapse pruning applied*
 
 ### Layer Color Dialog Features
 - **Individual Selection**: Click "Configure Layer Colors..." button
@@ -142,10 +177,14 @@ paper-ready-architecture/
 │   ├── test_mlp_generator.py     # Generator tests
 │   ├── test_integration.py       # Integration tests
 │   └── run_tests.py             # Test runner
-├── assets/                # Example images
-│   ├── example_academic.png     # Professional examples
-│   ├── example_vibrant.png      # Colorful examples
-│   └── example_deep.png         # Deep network examples
+├── assets/                # Example images and visualizations
+│   ├── example_academic.png     # Professional style example
+│   ├── example_vibrant.png      # Colorful style example
+│   ├── example_deep.png         # Deep network example
+│   ├── before_pruning.png       # Original dense network
+│   ├── neuron_pruning_30.png    # 30% neuron pruning example
+│   ├── synapse_pruning_40.png   # 40% synapse pruning example
+│   └── combined_pruning.png     # Combined pruning example
 ├── examples/              # Usage examples
 │   └── basic_usage.py     # Basic usage example
 └── configs/               # Saved configurations (created automatically)
