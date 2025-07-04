@@ -62,7 +62,8 @@ class ConfigManager:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"mlp_config_{timestamp}.yaml"
         
-        # Update metadata
+        if "metadata" not in config:
+            config["metadata"] = {}
         config["metadata"]["saved_at"] = datetime.now().isoformat()
         
         filepath = os.path.join(self.config_dir, filename)
