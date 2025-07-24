@@ -181,7 +181,8 @@ class CNNGenerator:
         for idx, layer in enumerate(config.get('conv_layers', [])):
             actual_maps = layer.get('filters', 32)
             num_maps = min(actual_maps, 8)
-            self._draw_3d_stack(ax, x_offset, y_center-block_h//2, block_w, block_h, num_maps, lc["conv"], 'black', alpha=0.7, zorder=5)
+            # Center the stack vertically on y_center
+            self._draw_3d_stack(ax, x_offset, y_center-block_h//2 + (block_h//2), block_w, block_h, num_maps, lc["conv"], 'black', alpha=0.7, zorder=5)
             draw_conn(prev_x, y_center, x_offset, y_center)
             label = f"Conv_{idx+1}\n({layer.get('kernel_size',3)}x{layer.get('kernel_size',3)} kernel, {layer.get('padding','valid')})\n({actual_maps} filters)"
             label_y = y_center - block_h//2 - 50
@@ -192,7 +193,8 @@ class CNNGenerator:
         for idx, layer in enumerate(config.get('pool_layers', [])):
             actual_maps = 4  # Pooling doesn't change channel count in this simple view
             num_maps = 4
-            self._draw_3d_stack(ax, x_offset, y_center-block_h//2, block_w, block_h, num_maps, lc["pool"], 'black', alpha=0.7, zorder=5)
+            # Center the stack vertically on y_center
+            self._draw_3d_stack(ax, x_offset, y_center-block_h//2 + (block_h//2), block_w, block_h, num_maps, lc["pool"], 'black', alpha=0.7, zorder=5)
             draw_conn(prev_x, y_center, x_offset, y_center)
             label = f"Pool_{idx+1}\n({layer.get('pool_size',2)}x{layer.get('pool_size',2)}, {layer.get('pool_type','max')})\n({actual_maps} maps)"
             label_y = y_center - block_h//2 - 30
