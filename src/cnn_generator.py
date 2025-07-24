@@ -54,7 +54,7 @@ class CNNGenerator:
                     img = img.convert('L')
                 return img
             # If not found locally, download from a reliable source
-            url = "https://github.com/myleott/mnist_png/raw/master/testing/2/10.png"
+            url = "http://github-production-user-asset-6210df.s3.amazonaws.com/22428774/470304250-338622cd-c3e6-4401-a3b3-7c0fc49ba97d.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20250724%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250724T124717Z&X-Amz-Expires=300&X-Amz-Signature=39560515ead946d80423ff721ea17ac8e5ed53274a9395e0dcb1d5666b2d386d&X-Amz-SignedHeaders=host"
             response = requests.get(url)
             img = Image.open(BytesIO(response.content))
             if img.mode != 'L':
@@ -203,12 +203,11 @@ class CNNGenerator:
         if config.get('flatten', True):
             flat_w, flat_h = 40, 80
             flat_x, flat_y = x_offset, y_center-flat_h//2
-            ax.add_patch(patches.Polygon([
-                (flat_x, flat_y),
-                (flat_x+flat_w, flat_y+20),
-                (flat_x+flat_w, flat_y+flat_h+20),
-                (flat_x, flat_y+flat_h)
-            ], closed=True, facecolor=lc["flatten"], edgecolor='black', alpha=0.7, zorder=5))
+            # Change from Polygon (parallelogram) to Rectangle
+            ax.add_patch(patches.Rectangle(
+                (flat_x, flat_y), flat_w, flat_h,
+                facecolor=lc["flatten"], edgecolor='black', alpha=0.7, zorder=5
+            ))
             draw_conn(prev_x, y_center, flat_x, y_center)
             label_y = flat_y + flat_h + 30
             ax.text(flat_x+flat_w/2, label_y, "Flatten", ha='center', va='top', **font, path_effects=[pe.withStroke(linewidth=2, foreground="w")])
