@@ -26,16 +26,16 @@ A simple Python GUI tool to create paper-ready visualizations of neural network 
 
 ### Pruning Visualizations
 
-**Before Pruning**
+#### Before Pruning
 <img src="assets/before_pruning.png" width="400" alt="Before pruning">
 
-**Neuron Pruning**
+#### Neuron Pruning
 <img src="assets/neuron_pruning.png" width="400" alt="Neuron pruning">
 
-**Synapse Pruning**
+#### Synapse Pruning
 <img src="assets/synapse_pruning.png" width="400" alt="Synapse pruning">
 
-**Combined Pruning**
+#### Combined Pruning
 <img src="assets/combined_pruning.png" width="400" alt="Combined pruning">
 
 ## Usage
