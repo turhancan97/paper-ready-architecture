@@ -175,7 +175,19 @@ class CNNGenerator:
         x_offset = prev_x + layer_spacing
 
         def draw_conn(x0, y0, x1, y1):
-            ax.plot([x0, x1], [y0, y1], color=vp["arrow_color"], lw=2, zorder=20)
+            # Draw an arrow instead of a line, with shortened length
+            margin = 20
+            if x1 > x0:
+                start_x, end_x = x0 + margin, x1 - margin
+            else:
+                start_x, end_x = x0 - margin, x1 + margin
+            ax.annotate(
+                '',
+                xy=(end_x, y1),
+                xytext=(start_x, y0),
+                arrowprops=dict(arrowstyle='->', color=vp["arrow_color"], lw=2),
+                zorder=21
+            )
 
         # Conv layers
         for idx, layer in enumerate(config.get('conv_layers', [])):
@@ -227,7 +239,7 @@ class CNNGenerator:
                 ax.add_patch(circle)
             draw_conn(prev_x, y_center, x_offset+node_r, y_center)
             label = f"Dense_{idx+1}\n({dense.get('activation','relu')})\n({actual_units} units)"
-            label_y = start_y + units*node_spacing + 30
+            label_y = start_y + units*node_spacing + 55
             ax.text(x_offset+node_r, label_y, label, ha='center', va='top', **font, path_effects=[pe.withStroke(linewidth=2, foreground="w")])
             prev_x = x_offset + 2*node_r
             x_offset = prev_x + layer_spacing
