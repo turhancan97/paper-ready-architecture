@@ -195,3 +195,6 @@ cython_debug/
 
 configs/
 output/
+
+# macOS
+.DS_Store

@@ -6,9 +6,12 @@ import io
 import base64
 import os
 from typing import Dict, Any
+import yaml
 
 from config_manager import ConfigManager
 from mlp_generator import MLPGenerator
+from cnn_generator import CNNGenerator
+from cnn_dialog import CNNDialog
 
 class MLPVisualizerGUI:
     """Main GUI application for MLP visualization."""
@@ -21,9 +24,9 @@ class MLPVisualizerGUI:
         # Initialize components
         self.config_manager = ConfigManager()
         self.mlp_generator = MLPGenerator()
+        self.cnn_generator = CNNGenerator()
         self.current_config = self.config_manager.get_default_config()
-        
-        # GUI variables
+        self.current_mode = tk.StringVar(value="mlp")
         self.preview_image = None
         self.auto_update = tk.BooleanVar(value=True)
         
@@ -35,6 +38,7 @@ class MLPVisualizerGUI:
         # Create main frames
         self.create_menu()
         self.create_main_frames()
+        self.create_mode_toggle()
         self.create_control_panel()
         self.create_preview_panel()
         
@@ -73,41 +77,64 @@ class MLPVisualizerGUI:
         self.preview_frame = ttk.Frame(self.root)
         self.preview_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
     
-    def create_control_panel(self):
+    def create_mode_toggle(self):
+        mode_frame = ttk.Frame(self.control_frame)
+        mode_frame.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(mode_frame, text="Mode:").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(mode_frame, text="MLP", variable=self.current_mode, value="mlp", command=self.on_mode_change).pack(side=tk.LEFT)
+        ttk.Radiobutton(mode_frame, text="CNN", variable=self.current_mode, value="cnn", command=self.on_mode_change).pack(side=tk.LEFT)
+    
+    def create_control_panel(self, refresh=False):
         """Create the control panel with all parameters."""
+        if refresh:
+            for widget in self.control_frame.winfo_children():
+                widget.destroy()
+        
         # Title
-        title_label = ttk.Label(self.control_frame, text="MLP Parameters", 
-                               font=('Arial', 14, 'bold'))
+        title = "MLP Parameters" if self.current_mode.get() == "mlp" else "CNN Parameters"
+        title_label = ttk.Label(self.control_frame, text=title, font=('Arial', 14, 'bold'))
         title_label.pack(pady=10)
         
-        # Create notebook for organized tabs
-        notebook = ttk.Notebook(self.control_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
-        
-        # Network Structure Tab
-        self.create_structure_tab(notebook)
-        
-        # Visual Parameters Tab
-        self.create_visual_tab(notebook)
-        
-        # Pruning Tab
-        self.create_pruning_tab(notebook)
-        
-        # Labels Tab
-        self.create_labels_tab(notebook)
-        
-        # Export Tab
-        self.create_export_tab(notebook)
-        
-        # Auto-update checkbox
-        auto_update_frame = ttk.Frame(self.control_frame)
-        auto_update_frame.pack(fill=tk.X, pady=10)
-        
-        ttk.Checkbutton(auto_update_frame, text="Auto-update preview", 
-                       variable=self.auto_update).pack(side=tk.LEFT)
-        
-        ttk.Button(auto_update_frame, text="Update", 
-                  command=self.update_preview).pack(side=tk.RIGHT)
+        if self.current_mode.get() == "mlp":
+            # Create notebook for organized tabs
+            notebook = ttk.Notebook(self.control_frame)
+            notebook.pack(fill=tk.BOTH, expand=True)
+            
+            # Network Structure Tab
+            self.create_structure_tab(notebook)
+            
+            # Visual Parameters Tab
+            self.create_visual_tab(notebook)
+            
+            # Pruning Tab
+            self.create_pruning_tab(notebook)
+            
+            # Labels Tab
+            self.create_labels_tab(notebook)
+            
+            # Export Tab
+            self.create_export_tab(notebook)
+            
+            # Auto-update checkbox
+            auto_update_frame = ttk.Frame(self.control_frame)
+            auto_update_frame.pack(fill=tk.X, pady=10)
+            
+            ttk.Checkbutton(auto_update_frame, text="Auto-update preview", 
+                           variable=self.auto_update).pack(side=tk.LEFT)
+            
+            ttk.Button(auto_update_frame, text="Update", 
+                      command=self.update_preview).pack(side=tk.RIGHT)
+        else:
+            # --- CNN Controls ---
+            info_label = ttk.Label(self.control_frame, text="Use the button below to configure your CNN architecture.", wraplength=400, justify=tk.LEFT)
+            info_label.pack(pady=10)
+            ttk.Button(self.control_frame, text="Configure CNN Architecture", command=self.open_cnn_dialog).pack(pady=10)
+            # Show a summary of the current CNN config
+            summary = yaml.dump(self.current_config, default_flow_style=False, sort_keys=False)
+            summary_label = tk.Text(self.control_frame, height=20, width=50, wrap=tk.WORD)
+            summary_label.insert(1.0, summary)
+            summary_label.config(state=tk.DISABLED)
+            summary_label.pack(pady=10)
     
     def create_structure_tab(self, parent):
         """Create network structure controls."""
@@ -420,34 +447,18 @@ class MLPVisualizerGUI:
         """Handle network structure changes."""
         self.root.after_idle(self.recreate_layer_colors)
         self.on_parameter_change()
-    
-    def recreate_layer_colors(self):
-        """Recreate layer color variables when structure changes."""
-        self.initialize_layer_colors()
-        
-        # If dialog is open, refresh it
-        if self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
-            # Clear the dialog content and recreate
-            for widget in self.layer_colors_dialog.winfo_children():
-                if isinstance(widget, ttk.Frame):
-                    # Find the scrollable frame and recreate controls
-                    canvas = None
-                    for child in widget.winfo_children():
-                        if isinstance(child, tk.Canvas):
-                            canvas = child
-                            break
-                    if canvas:
-                        scrollable_frame = canvas.nametowidget(canvas.find_all()[0])
-                        self.create_dialog_layer_controls(scrollable_frame)
-                    break
-        
+
+    def debounce_update_preview(self):
+        if hasattr(self, '_debounce_after_id') and self._debounce_after_id:
+            self.root.after_cancel(self._debounce_after_id)
+        self._debounce_after_id = self.root.after(300, self.update_preview)
+
     def on_parameter_change(self, *args):
         """Handle parameter changes."""
         # Update value labels
         self.update_value_labels()
-        
         if self.auto_update.get():
-            self.root.after_idle(self.update_preview)
+            self.debounce_update_preview()
     
     def update_value_labels(self):
         """Update the value labels next to sliders."""
@@ -496,6 +507,25 @@ class MLPVisualizerGUI:
             color_var = tk.StringVar(value=color)
             color_var.trace('w', self.on_parameter_change)
             self.layer_color_vars.append(color_var)
+    
+    def recreate_layer_colors(self):
+        """Recreate layer color variables when structure changes."""
+        self.initialize_layer_colors()
+        # If dialog is open, refresh it
+        if hasattr(self, 'layer_colors_dialog') and self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
+            # Clear the dialog content and recreate
+            for widget in self.layer_colors_dialog.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Find the scrollable frame and recreate controls
+                    canvas = None
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Canvas):
+                            canvas = child
+                            break
+                    if canvas:
+                        scrollable_frame = canvas.nametowidget(canvas.find_all()[0])
+                        self.create_dialog_layer_controls(scrollable_frame)
+                    break
     
     def open_layer_colors_dialog(self):
         """Open the layer colors configuration dialog."""
@@ -860,36 +890,58 @@ class MLPVisualizerGUI:
             if not self.update_config_from_gui():
                 return
             
-            # Generate new diagram
-            self.mlp_generator.close_figure()
-            fig = self.mlp_generator.create_diagram(self.current_config)
-            
-            # Convert to image for display
-            img_data = self.mlp_generator.get_figure_as_base64('png', dpi=100)
-            
-            # Display in canvas
-            img_bytes = base64.b64decode(img_data)
-            img = Image.open(io.BytesIO(img_bytes))
-            
-            # Resize to fit canvas
-            canvas_width = self.preview_canvas.winfo_width()
-            canvas_height = self.preview_canvas.winfo_height()
-            
-            if canvas_width > 1 and canvas_height > 1:  # Canvas is initialized
-                img.thumbnail((canvas_width-20, canvas_height-20), Image.Resampling.LANCZOS)
-            
-            self.preview_image = ImageTk.PhotoImage(img)
-            
-            # Clear canvas and display image
-            self.preview_canvas.delete("all")
-            self.preview_canvas.create_image(
-                self.preview_canvas.winfo_width()//2,
-                self.preview_canvas.winfo_height()//2,
-                image=self.preview_image
-            )
-            
-            # Auto-save configuration
-            self.config_manager.auto_save_config(self.current_config)
+            if self.current_mode.get() == "mlp":
+                # Generate new diagram
+                self.mlp_generator.close_figure()
+                fig = self.mlp_generator.create_diagram(self.current_config)
+                
+                # Convert to image for display
+                img_data = self.mlp_generator.get_figure_as_base64('png', dpi=100)
+                
+                # Display in canvas
+                img_bytes = base64.b64decode(img_data)
+                img = Image.open(io.BytesIO(img_bytes))
+                
+                # Resize to fit canvas
+                canvas_width = self.preview_canvas.winfo_width()
+                canvas_height = self.preview_canvas.winfo_height()
+                
+                if canvas_width > 1 and canvas_height > 1:  # Canvas is initialized
+                    img.thumbnail((canvas_width-20, canvas_height-20), Image.Resampling.LANCZOS)
+                
+                self.preview_image = ImageTk.PhotoImage(img)
+                
+                # Clear canvas and display image
+                self.preview_canvas.delete("all")
+                self.preview_canvas.create_image(
+                    self.preview_canvas.winfo_width()//2,
+                    self.preview_canvas.winfo_height()//2,
+                    image=self.preview_image
+                )
+                
+                # Auto-save configuration
+                self.config_manager.auto_save_config(self.current_config)
+            else:
+                fig = self.cnn_generator.create_diagram(self.current_config)
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.1)
+                buf.seek(0)
+                img = Image.open(buf)
+                # --- Auto-scale to fit canvas ---
+                canvas_width = self.preview_canvas.winfo_width()
+                canvas_height = self.preview_canvas.winfo_height()
+                if canvas_width > 1 and canvas_height > 1:
+                    img.thumbnail((canvas_width-20, canvas_height-20), Image.Resampling.LANCZOS)
+                self.preview_image = ImageTk.PhotoImage(img)
+                self.preview_canvas.delete("all")
+                self.preview_canvas.create_image(
+                    self.preview_canvas.winfo_width() // 2,
+                    self.preview_canvas.winfo_height() // 2,
+                    image=self.preview_image,
+                    anchor=tk.CENTER
+                )
+                buf.close()
+                fig.clf()
             
         except Exception as e:
             print(f"Preview Error: {e}")  # Use print instead of messagebox to prevent recursion
@@ -898,9 +950,17 @@ class MLPVisualizerGUI:
     
     def new_config(self):
         """Create new configuration."""
-        self.current_config = self.config_manager.get_default_config()
-        self.load_config_to_gui()
-        self.update_preview()
+        if self.current_mode.get() == "mlp":
+            self.current_config = self.config_manager.get_default_config()
+            self.load_config_to_gui()
+            self.update_preview()
+        else:
+            dialog = CNNDialog(self.root, self.config_manager)
+            config = dialog.show()
+            if config:
+                self.current_config = config
+                self.create_control_panel(refresh=True)
+                self.update_preview()
     
     def load_config(self):
         """Load configuration from file."""
@@ -995,8 +1055,11 @@ class MLPVisualizerGUI:
         if filepath:
             try:
                 # Generate high-quality image
-                self.mlp_generator.close_figure()
-                fig = self.mlp_generator.create_diagram(self.current_config)
+                if self.current_mode.get() == "mlp":
+                    self.mlp_generator.close_figure()
+                    fig = self.mlp_generator.create_diagram(self.current_config)
+                else:
+                    fig = self.cnn_generator.create_diagram(self.current_config)
                 
                 # Determine format from extension
                 format_ext = os.path.splitext(filepath)[1].lower().lstrip('.')
@@ -1004,7 +1067,10 @@ class MLPVisualizerGUI:
                     format_ext = 'jpeg'
                 
                 # Save with high DPI
-                self.mlp_generator.save_figure(filepath, format_ext, self.dpi_var.get())
+                if self.current_mode.get() == "mlp":
+                    self.mlp_generator.save_figure(filepath, format_ext, self.dpi_var.get())
+                else:
+                    self.cnn_generator.save_figure(filepath, format_ext, self.dpi_var.get())
                 
                 # Also save the configuration
                 config_path = os.path.splitext(filepath)[0] + "_config.yaml"
@@ -1021,6 +1087,33 @@ class MLPVisualizerGUI:
                            "Neural Network Architecture Visualizer v1.0\n\n"
                            "Create paper-ready visualizations of Multi-Layer Perceptrons\n"
                            "with customizable parameters and clean, minimalist design.")
+    
+    def on_mode_change(self):
+        if self.current_mode.get() == "mlp":
+            self.current_config = self.config_manager.get_default_config()
+        else:
+            # Load a default CNN config (or create a minimal one)
+            self.current_config = {
+                "network_type": "cnn",
+                "input_shape": [28, 28, 1],
+                "conv_layers": [],
+                "pool_layers": [],
+                "flatten": True,
+                "flatten_shape": [1, 256],
+                "dense_layers": [],
+                "output_units": 10,
+                "output_activation": "softmax"
+            }
+        self.create_control_panel(refresh=True)
+        self.update_preview()
+    
+    def open_cnn_dialog(self):
+        dialog = CNNDialog(self.root, self.config_manager, initial_config=self.current_config)
+        config = dialog.show()
+        if config:
+            self.current_config = config
+            self.create_control_panel(refresh=True)
+            self.update_preview()
     
     def run(self):
         """Start the GUI application."""
