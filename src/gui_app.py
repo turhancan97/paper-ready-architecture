@@ -446,34 +446,18 @@ class MLPVisualizerGUI:
         """Handle network structure changes."""
         self.root.after_idle(self.recreate_layer_colors)
         self.on_parameter_change()
-    
-    def recreate_layer_colors(self):
-        """Recreate layer color variables when structure changes."""
-        self.initialize_layer_colors()
-        
-        # If dialog is open, refresh it
-        if self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
-            # Clear the dialog content and recreate
-            for widget in self.layer_colors_dialog.winfo_children():
-                if isinstance(widget, ttk.Frame):
-                    # Find the scrollable frame and recreate controls
-                    canvas = None
-                    for child in widget.winfo_children():
-                        if isinstance(child, tk.Canvas):
-                            canvas = child
-                            break
-                    if canvas:
-                        scrollable_frame = canvas.nametowidget(canvas.find_all()[0])
-                        self.create_dialog_layer_controls(scrollable_frame)
-                    break
-        
+
+    def debounce_update_preview(self):
+        if hasattr(self, '_debounce_after_id') and self._debounce_after_id:
+            self.root.after_cancel(self._debounce_after_id)
+        self._debounce_after_id = self.root.after(300, self.update_preview)
+
     def on_parameter_change(self, *args):
         """Handle parameter changes."""
         # Update value labels
         self.update_value_labels()
-        
         if self.auto_update.get():
-            self.root.after_idle(self.update_preview)
+            self.debounce_update_preview()
     
     def update_value_labels(self):
         """Update the value labels next to sliders."""
@@ -522,6 +506,25 @@ class MLPVisualizerGUI:
             color_var = tk.StringVar(value=color)
             color_var.trace('w', self.on_parameter_change)
             self.layer_color_vars.append(color_var)
+    
+    def recreate_layer_colors(self):
+        """Recreate layer color variables when structure changes."""
+        self.initialize_layer_colors()
+        # If dialog is open, refresh it
+        if hasattr(self, 'layer_colors_dialog') and self.layer_colors_dialog is not None and self.layer_colors_dialog.winfo_exists():
+            # Clear the dialog content and recreate
+            for widget in self.layer_colors_dialog.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Find the scrollable frame and recreate controls
+                    canvas = None
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Canvas):
+                            canvas = child
+                            break
+                    if canvas:
+                        scrollable_frame = canvas.nametowidget(canvas.find_all()[0])
+                        self.create_dialog_layer_controls(scrollable_frame)
+                    break
     
     def open_layer_colors_dialog(self):
         """Open the layer colors configuration dialog."""
