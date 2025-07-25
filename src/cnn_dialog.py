@@ -103,11 +103,18 @@ class CNNDialog:
         ttk.Entry(shape_frame, textvariable=self.width_var, width=5).pack(side=tk.LEFT, padx=5)
         
         ttk.Label(shape_frame, text="Channels:").pack(side=tk.LEFT)
-        ttk.Entry(shape_frame, textvariable=self.channels_var, width=5).pack(side=tk.LEFT, padx=5)
+        self.channels_entry = ttk.Entry(shape_frame, textvariable=self.channels_var, width=5, state='disabled')
+        self.channels_entry.pack(side=tk.LEFT, padx=5)
         
         # Input type
         ttk.Label(frame, text="Input Type:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.input_type_var = tk.StringVar(value="grayscale")
+        def update_channels(*args):
+            if self.input_type_var.get() == "grayscale":
+                self.channels_var.set("1")
+            else:
+                self.channels_var.set("3")
+        self.input_type_var.trace_add('write', update_channels)
         ttk.Radiobutton(
             frame,
             text="Grayscale",
